@@ -76,13 +76,51 @@ public class TicketsController : Controller
     /// <returns>The ticket details page, or a not found response when the ticket does not exist.</returns>
     public async Task<IActionResult> Details(int id)
     {
-        var ticket = await dbContext.Tickets.FindAsync(id);
+        var ticket = await dbContext.Tickets
+            .Include(ticket => ticket.Comments.OrderBy(comment => comment.CreatedAt))
+            .SingleOrDefaultAsync(ticket => ticket.Id == id);
+
         if (ticket is null)
         {
             return NotFound();
         }
 
         return View(ticket);
+    }
+
+    /// <summary>
+    /// Validates and adds a follow-up comment to an existing ticket.
+    /// </summary>
+    /// <param name="id">Identifier of the ticket that will receive the comment.</param>
+    /// <param name="comment">Comment data submitted by the user.</param>
+    /// <returns>The validation page when invalid, or the details page for the updated ticket.</returns>
+    [HttpPost("/Tickets/{id:int}/Comments")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddComment(int id, [Bind("AuthorName,Body")] TicketComment comment)
+    {
+        var ticket = await dbContext.Tickets
+            .Include(ticket => ticket.Comments.OrderBy(existingComment => existingComment.CreatedAt))
+            .SingleOrDefaultAsync(ticket => ticket.Id == id);
+
+        if (ticket is null)
+        {
+            return NotFound();
+        }
+
+        ModelState.Remove(nameof(TicketComment.Ticket));
+
+        if (!ModelState.IsValid)
+        {
+            return View(nameof(Details), ticket);
+        }
+
+        comment.TicketId = ticket.Id;
+        comment.CreatedAt = DateTime.UtcNow;
+
+        dbContext.TicketComments.Add(comment);
+        await dbContext.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Details), new { id = ticket.Id });
     }
 
     /// <summary>

@@ -23,6 +23,11 @@ public class AppDbContext : DbContext
     public DbSet<Ticket> Tickets => Set<Ticket>();
 
     /// <summary>
+    /// Comments recorded on tickets.
+    /// </summary>
+    public DbSet<TicketComment> TicketComments => Set<TicketComment>();
+
+    /// <summary>
     /// Configures the database mapping and constraints for the domain model.
     /// </summary>
     /// <param name="modelBuilder">Builder used to configure EF Core metadata.</param>
@@ -35,6 +40,18 @@ public class AppDbContext : DbContext
             entity.Property(ticket => ticket.Priority).HasConversion<string>().HasMaxLength(20).IsRequired();
             entity.Property(ticket => ticket.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
             entity.Property(ticket => ticket.CreatedAt).IsRequired();
+        });
+
+        modelBuilder.Entity<TicketComment>(entity =>
+        {
+            entity.Property(comment => comment.AuthorName).HasMaxLength(80).IsRequired();
+            entity.Property(comment => comment.Body).HasMaxLength(1000).IsRequired();
+            entity.Property(comment => comment.CreatedAt).IsRequired();
+
+            entity.HasOne(comment => comment.Ticket)
+                .WithMany(ticket => ticket.Comments)
+                .HasForeignKey(comment => comment.TicketId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

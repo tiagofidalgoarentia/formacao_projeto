@@ -22,15 +22,54 @@
     <dt>Criado em</dt>
     <dd>@Model.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</dd>
 
-    <dt>Descrição</dt>
+    <dt>Descricao</dt>
     <dd>@Model.Description</dd>
 </dl>
 
-<section class="exercise-placeholder">
-    <h2>Comentários</h2>
-    <p>Esta funcionalidade não está implementada de propósito na aplicação base.</p>
+<section class="comments-section">
+    <h2>Comentarios</h2>
+
+    @if (Model.Comments.Count == 0)
+    {
+        <p class="empty-state">Ainda nao existem comentarios neste ticket.</p>
+    }
+    else
+    {
+        <ol class="comments-list">
+            @foreach (var comment in Model.Comments)
+            {
+                <li class="comment">
+                    <div class="comment-meta">
+                        <strong>@comment.AuthorName</strong>
+                        <time datetime="@comment.CreatedAt.ToString("O")">
+                            @comment.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                        </time>
+                    </div>
+                    <p>@comment.Body</p>
+                </li>
+            }
+        </ol>
+    }
+
+    <form class="form comment-form" asp-action="AddComment" asp-route-id="@Model.Id" method="post">
+        <div asp-validation-summary="All" class="validation-summary"></div>
+
+        <div class="field">
+            <label for="AuthorName">Autor</label>
+            <input id="AuthorName" name="AuthorName" maxlength="80" />
+            <span class="validation-message" data-valmsg-for="AuthorName" data-valmsg-replace="true"></span>
+        </div>
+
+        <div class="field">
+            <label for="Body">Comentario</label>
+            <textarea id="Body" name="Body" rows="4" maxlength="1000"></textarea>
+            <span class="validation-message" data-valmsg-for="Body" data-valmsg-replace="true"></span>
+        </div>
+
+        <button class="button" type="submit">Adicionar comentario</button>
+    </form>
 </section>
 
 <div class="form-actions">
-    <a class="button button-secondary" asp-action="Index">Voltar à lista</a>
+    <a class="button button-secondary" asp-action="Index">Voltar a lista</a>
 </div>

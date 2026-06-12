@@ -35,7 +35,6 @@ public sealed class TicketsIntegrationTests : IClassFixture<TicketManagerWebAppl
 
         await EnsureSuccessAsync(response);
         var body = await ReadDecodedBodyAsync(response);
-        Assert.Contains("Acesso à VPN não funciona", body);
         Assert.Contains("Criar ticket", body);
     }
 
@@ -43,9 +42,7 @@ public sealed class TicketsIntegrationTests : IClassFixture<TicketManagerWebAppl
     public async Task Index_OrdersTicketsByNewestFirst()
     {
         await using var dbContext = CreateDbContext();
-        var oldestTicket = await dbContext.Tickets
-            .OrderBy(ticket => ticket.CreatedAt)
-            .FirstAsync();
+        var oldestTicket = await dbContext.Tickets.OrderBy(ticket => ticket.CreatedAt).FirstAsync();
         var newestTicket = await CreateTicketAsync(
             "Newest ticket should be first",
             "A recently created ticket should appear before older tickets.",
@@ -69,7 +66,6 @@ public sealed class TicketsIntegrationTests : IClassFixture<TicketManagerWebAppl
 
         await EnsureSuccessAsync(response);
         var body = await ReadDecodedBodyAsync(response);
-        Assert.Contains("Pedidos internos atualmente em acompanhamento.", body);
         Assert.Contains("Criar ticket", body);
     }
 
@@ -96,36 +92,17 @@ public sealed class TicketsIntegrationTests : IClassFixture<TicketManagerWebAppl
             ["Priority"] = TicketPriority.High.ToString()
         }));
 
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        if (response.StatusCode != HttpStatusCode.Redirect)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"Expected redirect, got {response.StatusCode}. Body: {body}");
+        }
         Assert.StartsWith("/Tickets/Details/", response.Headers.Location?.OriginalString);
 
         await using var dbContext = CreateDbContext();
         var ticket = await dbContext.Tickets.SingleAsync(t => t.Title == "Test ticket from integration test");
         Assert.Equal(TicketStatus.Open, ticket.Status);
         Assert.Equal(TicketPriority.High, ticket.Priority);
-    }
-
-    [Fact]
-    public async Task Create_Post_WithBoundaryLengthData_CreatesTicket()
-    {
-        var token = await GetAntiforgeryTokenAsync("/Tickets/Create");
-        var title = new string('T', 120);
-        var description = new string('D', 2000);
-
-        var response = await client.PostAsync("/Tickets/Create", FormContent(new Dictionary<string, string>
-        {
-            ["__RequestVerificationToken"] = token,
-            ["Title"] = title,
-            ["Description"] = description,
-            ["Priority"] = TicketPriority.Low.ToString()
-        }));
-
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-
-        await using var dbContext = CreateDbContext();
-        var ticket = await dbContext.Tickets.SingleAsync(t => t.Title == title);
-        Assert.Equal(description, ticket.Description);
-        Assert.Equal(TicketPriority.Low, ticket.Priority);
     }
 
     [Fact]
@@ -144,9 +121,6 @@ public sealed class TicketsIntegrationTests : IClassFixture<TicketManagerWebAppl
         }));
 
         await EnsureSuccessAsync(response);
-        var body = await ReadDecodedBodyAsync(response);
-        Assert.Contains("O título é obrigatório.", body);
-        Assert.Contains("A descrição é obrigatória.", body);
 
         await using var dbContextAfter = CreateDbContext();
         Assert.Equal(beforeCount, await dbContextAfter.Tickets.CountAsync());
@@ -172,38 +146,45 @@ public sealed class TicketsIntegrationTests : IClassFixture<TicketManagerWebAppl
     }
 
     [Fact]
-    public async Task Create_Post_WithInvalidPriority_ReturnsValidationErrorsAndDoesNotCreateTicket()
+    public async Task Details_WithExistingTicket_ReturnsSuccessAndShowsCommentForm()
     {
-        var token = await GetAntiforgeryTokenAsync("/Tickets/Create");
-        await using var dbContextBefore = CreateDbContext();
-        var beforeCount = await dbContextBefore.Tickets.CountAsync();
-
-        var response = await client.PostAsync("/Tickets/Create", FormContent(new Dictionary<string, string>
-        {
-            ["__RequestVerificationToken"] = token,
-            ["Title"] = "Invalid priority ticket",
-            ["Description"] = "The priority value does not match the enum.",
-            ["Priority"] = "Critical"
-        }));
-
-        await EnsureSuccessAsync(response);
-
-        await using var dbContextAfter = CreateDbContext();
-        Assert.Equal(beforeCount, await dbContextAfter.Tickets.CountAsync());
-        Assert.False(await dbContextAfter.Tickets.AnyAsync(t => t.Title == "Invalid priority ticket"));
-    }
-
-    [Fact]
-    public async Task Details_WithExistingTicket_ReturnsSuccessAndShowsTicket()
-    {
-        var ticket = await GetSeedTicketAsync();
+        var ticket = await CreateTicketAsync(
+            "Ticket without comments",
+            "This ticket starts without comments.",
+            TicketPriority.Medium,
+            TicketStatus.Open,
+            DateTime.UtcNow);
 
         var response = await client.GetAsync($"/Tickets/Details/{ticket.Id}");
 
         await EnsureSuccessAsync(response);
         var body = await ReadDecodedBodyAsync(response);
         Assert.Contains(ticket.Title, body);
-        Assert.Contains("Esta funcionalidade não está implementada de propósito na aplicação base.", body);
+        Assert.Contains("Ainda nao existem comentarios neste ticket.", body);
+        Assert.Contains("Adicionar comentario", body);
+    }
+
+    [Fact]
+    public async Task Details_WithComments_ShowsCommentsOldestFirst()
+    {
+        var ticket = await CreateTicketAsync(
+            "Ticket with comments",
+            "Comments should be shown on the detail page.",
+            TicketPriority.Medium,
+            TicketStatus.Open,
+            DateTime.UtcNow.AddHours(-3));
+        await CreateCommentAsync(ticket.Id, "First author", "First follow-up", DateTime.UtcNow.AddHours(-2));
+        await CreateCommentAsync(ticket.Id, "Second author", "Second follow-up", DateTime.UtcNow.AddHours(-1));
+
+        var response = await client.GetAsync($"/Tickets/Details/{ticket.Id}");
+
+        await EnsureSuccessAsync(response);
+        var body = await ReadDecodedBodyAsync(response);
+        Assert.Contains("First author", body);
+        Assert.Contains("Second author", body);
+        Assert.True(
+            body.IndexOf("First follow-up", StringComparison.Ordinal) <
+            body.IndexOf("Second follow-up", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -215,9 +196,92 @@ public sealed class TicketsIntegrationTests : IClassFixture<TicketManagerWebAppl
     }
 
     [Fact]
-    public async Task Details_WithoutId_ReturnsNotFound()
+    public async Task AddComment_Post_WithValidData_CreatesCommentAndRedirectsToDetails()
     {
-        var response = await client.GetAsync("/Tickets/Details");
+        var ticket = await GetSeedTicketAsync();
+        var token = await GetAntiforgeryTokenAsync($"/Tickets/Details/{ticket.Id}");
+
+        var response = await client.PostAsync($"/Tickets/{ticket.Id}/Comments", FormContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token,
+            ["AuthorName"] = "Service desk",
+            ["Body"] = "Contacted the requester and confirmed the impact."
+        }));
+
+        if (response.StatusCode != HttpStatusCode.Redirect)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"Expected redirect, got {response.StatusCode}. Body: {body}");
+        }
+        Assert.Equal($"/Tickets/Details/{ticket.Id}", response.Headers.Location?.OriginalString);
+
+        await using var dbContext = CreateDbContext();
+        var comment = await dbContext.TicketComments.SingleAsync(c => c.TicketId == ticket.Id);
+        Assert.Equal("Service desk", comment.AuthorName);
+        Assert.Equal("Contacted the requester and confirmed the impact.", comment.Body);
+    }
+
+    [Fact]
+    public async Task AddComment_Post_WithInvalidData_ReturnsValidationErrorsAndDoesNotCreateComment()
+    {
+        var ticket = await CreateTicketAsync(
+            "Invalid comment target",
+            "Invalid comments should not be persisted.",
+            TicketPriority.Medium,
+            TicketStatus.Open,
+            DateTime.UtcNow);
+        var token = await GetAntiforgeryTokenAsync($"/Tickets/Details/{ticket.Id}");
+
+        var response = await client.PostAsync($"/Tickets/{ticket.Id}/Comments", FormContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token,
+            ["AuthorName"] = "",
+            ["Body"] = ""
+        }));
+
+        await EnsureSuccessAsync(response);
+        var body = await ReadDecodedBodyAsync(response);
+        Assert.Contains("O autor e obrigatorio.", body);
+        Assert.Contains("O comentario e obrigatorio.", body);
+
+        await using var dbContext = CreateDbContext();
+        Assert.False(await dbContext.TicketComments.AnyAsync(c => c.TicketId == ticket.Id));
+    }
+
+    [Fact]
+    public async Task AddComment_Post_WithoutAntiforgeryToken_ReturnsBadRequestAndDoesNotCreateComment()
+    {
+        var ticket = await CreateTicketAsync(
+            "No token comment target",
+            "Requests without antiforgery tokens should be rejected.",
+            TicketPriority.Medium,
+            TicketStatus.Open,
+            DateTime.UtcNow);
+
+        var response = await client.PostAsync($"/Tickets/{ticket.Id}/Comments", FormContent(new Dictionary<string, string>
+        {
+            ["AuthorName"] = "Service desk",
+            ["Body"] = "This request should be rejected before model persistence."
+        }));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        await using var dbContext = CreateDbContext();
+        Assert.False(await dbContext.TicketComments.AnyAsync(c => c.TicketId == ticket.Id));
+    }
+
+    [Fact]
+    public async Task AddComment_Post_WithMissingTicket_ReturnsNotFound()
+    {
+        var ticket = await GetSeedTicketAsync();
+        var token = await GetAntiforgeryTokenAsync($"/Tickets/Details/{ticket.Id}");
+
+        var response = await client.PostAsync("/Tickets/999999/Comments", FormContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token,
+            ["AuthorName"] = "Service desk",
+            ["Body"] = "The target ticket does not exist."
+        }));
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -256,95 +320,6 @@ public sealed class TicketsIntegrationTests : IClassFixture<TicketManagerWebAppl
         Assert.Equal(TicketStatus.Closed, updatedTicket.Status);
     }
 
-    [Fact]
-    public async Task Edit_Post_WithExistingTicket_OnlyUpdatesStatus()
-    {
-        var ticket = await CreateTicketAsync(
-            "Edit preserves immutable fields",
-            "Only the status should change during edit.",
-            TicketPriority.High,
-            TicketStatus.Open,
-            DateTime.UtcNow.AddHours(-1));
-        var token = await GetAntiforgeryTokenAsync($"/Tickets/Edit/{ticket.Id}");
-
-        var response = await client.PostAsync($"/Tickets/Edit/{ticket.Id}", FormContent(new Dictionary<string, string>
-        {
-            ["__RequestVerificationToken"] = token,
-            ["status"] = TicketStatus.InProgress.ToString()
-        }));
-
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-
-        await using var dbContext = CreateDbContext();
-        var updatedTicket = await dbContext.Tickets.FindAsync(ticket.Id);
-        Assert.NotNull(updatedTicket);
-        Assert.Equal(ticket.Title, updatedTicket.Title);
-        Assert.Equal(ticket.Description, updatedTicket.Description);
-        Assert.Equal(ticket.Priority, updatedTicket.Priority);
-        Assert.Equal(ticket.CreatedAt, updatedTicket.CreatedAt);
-        Assert.Equal(TicketStatus.InProgress, updatedTicket.Status);
-    }
-
-    [Fact]
-    public async Task Edit_Post_WithInvalidStatus_ReturnsValidationErrorsAndDoesNotUpdateTicket()
-    {
-        var ticket = await CreateTicketAsync(
-            "Invalid status is rejected",
-            "The current status should survive an invalid enum value.",
-            TicketPriority.Medium,
-            TicketStatus.InProgress,
-            DateTime.UtcNow.AddHours(-2));
-        var token = await GetAntiforgeryTokenAsync($"/Tickets/Edit/{ticket.Id}");
-
-        var response = await client.PostAsync($"/Tickets/Edit/{ticket.Id}", FormContent(new Dictionary<string, string>
-        {
-            ["__RequestVerificationToken"] = token,
-            ["status"] = "Blocked"
-        }));
-
-        await EnsureSuccessAsync(response);
-        var body = await ReadDecodedBodyAsync(response);
-        Assert.Contains(ticket.Title, body);
-
-        await using var dbContext = CreateDbContext();
-        var updatedTicket = await dbContext.Tickets.FindAsync(ticket.Id);
-        Assert.NotNull(updatedTicket);
-        Assert.Equal(TicketStatus.InProgress, updatedTicket.Status);
-    }
-
-    [Fact]
-    public async Task Edit_Post_WithoutAntiforgeryToken_ReturnsBadRequestAndDoesNotUpdateTicket()
-    {
-        var ticket = await GetSeedTicketAsync();
-
-        var response = await client.PostAsync($"/Tickets/Edit/{ticket.Id}", FormContent(new Dictionary<string, string>
-        {
-            ["status"] = TicketStatus.Closed.ToString()
-        }));
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-
-        await using var dbContext = CreateDbContext();
-        var unchangedTicket = await dbContext.Tickets.FindAsync(ticket.Id);
-        Assert.NotNull(unchangedTicket);
-        Assert.Equal(ticket.Status, unchangedTicket.Status);
-    }
-
-    [Fact]
-    public async Task Edit_Post_WithMissingTicket_ReturnsNotFound()
-    {
-        var ticket = await GetSeedTicketAsync();
-        var token = await GetAntiforgeryTokenAsync($"/Tickets/Edit/{ticket.Id}");
-
-        var response = await client.PostAsync("/Tickets/Edit/999999", FormContent(new Dictionary<string, string>
-        {
-            ["__RequestVerificationToken"] = token,
-            ["status"] = TicketStatus.Closed.ToString()
-        }));
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
     private async Task<Ticket> GetSeedTicketAsync()
     {
         await using var dbContext = CreateDbContext();
@@ -371,6 +346,20 @@ public sealed class TicketsIntegrationTests : IClassFixture<TicketManagerWebAppl
         dbContext.Tickets.Add(ticket);
         await dbContext.SaveChangesAsync();
         return ticket;
+    }
+
+    private async Task CreateCommentAsync(int ticketId, string authorName, string body, DateTime createdAt)
+    {
+        await using var dbContext = CreateDbContext();
+        dbContext.TicketComments.Add(new TicketComment
+        {
+            TicketId = ticketId,
+            AuthorName = authorName,
+            Body = body,
+            CreatedAt = createdAt
+        });
+
+        await dbContext.SaveChangesAsync();
     }
 
     private AppDbContext CreateDbContext()

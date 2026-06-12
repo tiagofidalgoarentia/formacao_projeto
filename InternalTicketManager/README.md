@@ -14,11 +14,11 @@ Implementado:
 - Criar ticket
 - Ver detalhe de ticket
 - Editar estado de ticket
+- Adicionar comentarios aos tickets
 - Criar 5 tickets de exemplo
 
 Nao implementado:
 
-- Comentarios nos tickets
 - Utilizadores
 - Autenticacao
 - Autorizacao
@@ -52,6 +52,14 @@ dotnet run --project src/TicketManager.Web
 Abrir o URL indicado pelo `dotnet run`.
 
 A aplicacao cria a base de dados automaticamente com `EnsureCreated()` e cria tickets de exemplo se a base de dados estiver vazia.
+
+## Comentarios nos tickets
+
+Na pagina de detalhe de cada ticket, a seccao `Comentarios` permite registar
+notas de acompanhamento com autor livre e texto do comentario.
+
+Os comentarios ficam associados ao ticket, aparecem por ordem cronologica e nao
+alteram prioridade, estado ou outros dados do pedido.
 
 ## Testes
 

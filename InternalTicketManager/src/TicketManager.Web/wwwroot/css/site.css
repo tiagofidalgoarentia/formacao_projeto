@@ -88,7 +88,7 @@ h2 {
 }
 
 .page-heading p,
-.exercise-placeholder p {
+.empty-state {
     color: var(--muted);
     margin-bottom: 0;
 }
@@ -248,13 +248,56 @@ textarea {
     margin: 0;
 }
 
-.exercise-placeholder {
+.comments-section {
     max-width: 800px;
     margin-top: 24px;
     padding: 20px 24px;
     background: var(--panel);
-    border: 1px dashed #98a2b3;
+    border: 1px solid var(--line);
     border-radius: 8px;
+}
+
+.comments-list {
+    display: grid;
+    gap: 14px;
+    margin: 0 0 24px;
+    padding: 0;
+    list-style: none;
+}
+
+.comment {
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+}
+
+.comment:last-child {
+    border-bottom: 0;
+}
+
+.comment p {
+    margin-bottom: 0;
+    white-space: pre-wrap;
+}
+
+.comment-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+
+.comment-meta strong {
+    color: var(--text);
+}
+
+.comment-form {
+    max-width: none;
+    margin-top: 24px;
+    padding: 0;
+    border: 0;
 }
 
 @media (max-width: 720px) {

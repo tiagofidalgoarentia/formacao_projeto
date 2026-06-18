@@ -50,19 +50,7 @@ listar, criar, consultar e atualizar tickets de suporte ou operacoes internas.
 
 ## Como usar
 
-Restaurar dependencias:
-
-```powershell
-dotnet restore InternalTicketManager.sln
-```
-
-Executar a aplicacao:
-
-```powershell
-dotnet run --project src/TicketManager.Web
-```
-
-Em Windows, tambem pode ser usado o script local:
+Iniciar a aplicacao:
 
 ```powershell
 .\scripts\start-app.ps1

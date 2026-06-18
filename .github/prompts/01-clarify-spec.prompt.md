@@ -2,7 +2,7 @@
 description: Create an implementation-ready feature spec from the request, project rules, docs, and existing code.
 ---
 
-# Spec From Context
+# Clarify Spec
 
 Create a feature specification before coding.
 

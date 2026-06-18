@@ -2,7 +2,7 @@
 description: Implement a feature from an existing spec, ticket, requirements document, or acceptance criteria.
 ---
 
-# Feature From Spec
+# Implement From Spec
 
 Implement the requested feature from the provided or referenced spec.
 
@@ -16,7 +16,7 @@ Follow this workflow:
 6. Implement incrementally and keep edits scoped to the feature.
 7. Add or update tests based on behavior and risk.
 8. Run the most relevant checks first, then broader checks when practical.
-9. If UI changes are included, validate the app in a browser and check relevant responsive states.
+9. If UI changes are included, do a practical browser check when feasible and note any responsive states verified.
 
 Rules:
 

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Frontend QA"
-  short_description: "Verify frontend changes visually and interactively."
-  default_prompt: "Run frontend QA for the current UI changes."

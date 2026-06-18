@@ -82,7 +82,6 @@ Por predefinicao, a base de dados local usa o ficheiro `InternalTicketManager.db
 ## Testes
 
 Os testes de integracao usam uma base SQLite temporaria e isolada por execucao.
-Nao e necessario configurar SQL Server, Docker ou uma connection string externa.
 
 ```powershell
 dotnet test InternalTicketManager.sln

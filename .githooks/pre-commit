@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+
+echo "Running pre-commit checks..."
+
+dotnet format InternalTicketManager.sln --verify-no-changes --verbosity minimal
+dotnet build InternalTicketManager.sln --no-restore
+
+echo "Pre-commit checks passed."

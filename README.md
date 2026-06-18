@@ -75,6 +75,24 @@ Os testes de integracao usam uma base SQLite temporaria e isolada por execucao.
 dotnet test InternalTicketManager.sln
 ```
 
+## Hooks de Git
+
+O repositorio inclui um hook `pre-commit` versionado em `.githooks/`.
+Para o ativar no clone local:
+
+```powershell
+.\scripts\install-git-hooks.ps1
+```
+
+Depois de ativado, cada commit executa:
+
+```powershell
+dotnet format InternalTicketManager.sln --verify-no-changes --verbosity minimal
+dotnet build InternalTicketManager.sln --no-restore
+```
+
+Se alguma verificacao falhar, o commit e interrompido para corrigir o codigo.
+
 ## Documentacao e especificacoes
 
 - Requisitos e specs funcionais: `docs/specs/`

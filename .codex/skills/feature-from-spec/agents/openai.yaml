@@ -1,4 +1,0 @@
-interface:
-  display_name: "Feature From Spec"
-  short_description: "Implement features from specs with validation."
-  default_prompt: "Implement this feature from its spec."

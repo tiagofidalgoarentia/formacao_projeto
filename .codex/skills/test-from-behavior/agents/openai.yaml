@@ -1,4 +1,0 @@
-interface:
-  display_name: "Test From Behavior"
-  short_description: "Design and add tests from expected behavior."
-  default_prompt: "Create tests for this behavior or spec."

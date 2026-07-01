@@ -1,4 +1,0 @@
-interface:
-  display_name: "Spec From Context"
-  short_description: "Create feature specs from project rules and docs."
-  default_prompt: "Create a spec for this feature using the project context."

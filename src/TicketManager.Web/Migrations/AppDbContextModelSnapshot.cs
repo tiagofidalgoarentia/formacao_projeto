@@ -50,6 +50,51 @@ namespace TicketManager.Web.Migrations
 
                     b.ToTable("Tickets");
                 });
+
+            modelBuilder.Entity("TicketManager.Web.Models.TicketComment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AuthorName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TicketId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TicketId");
+
+                    b.ToTable("TicketComments");
+                });
+
+            modelBuilder.Entity("TicketManager.Web.Models.TicketComment", b =>
+                {
+                    b.HasOne("TicketManager.Web.Models.Ticket", "Ticket")
+                        .WithMany("Comments")
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Ticket");
+                });
+
+            modelBuilder.Entity("TicketManager.Web.Models.Ticket", b =>
+                {
+                    b.Navigation("Comments");
+                });
 #pragma warning restore 612, 618
         }
     }

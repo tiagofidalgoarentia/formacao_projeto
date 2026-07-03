@@ -1,30 +1,86 @@
-@model Ticket
+@model TicketDetailsViewModel
 
 @{
     ViewData["Title"] = "Detalhe do ticket";
+    var ticket = Model.Ticket;
 }
 
 <section class="page-heading">
     <div>
-        <h1>@Model.Title</h1>
-        <p>Ticket n.º @Model.Id</p>
+        <h1>@ticket.Title</h1>
+        <p>Ticket n.º @ticket.Id</p>
     </div>
-    <a class="button" asp-action="Edit" asp-route-id="@Model.Id">Editar estado</a>
+    @if (ticket.Status == TicketStatus.Closed)
+    {
+        <form asp-action="Reopen" asp-route-id="@ticket.Id" method="post">
+            <button type="submit" class="button">Reabrir ticket</button>
+        </form>
+    }
+    else if (ticket.Status == TicketStatus.Open || ticket.Status == TicketStatus.InProgress)
+    {
+        <form asp-action="Close" asp-route-id="@ticket.Id" method="post">
+            <button type="submit" class="button">Fechar ticket</button>
+        </form>
+    }
 </section>
 
 <dl class="details-list">
     <dt>Prioridade</dt>
-    <dd><span class="badge priority-@Model.Priority.ToString().ToLowerInvariant()">@Model.Priority.ToDisplayName()</span></dd>
+    <dd><span class="badge priority-@ticket.Priority.ToString().ToLowerInvariant()">@ticket.Priority.ToDisplayName()</span></dd>
 
     <dt>Estado</dt>
-    <dd><span class="badge status-@Model.Status.ToString().ToLowerInvariant()">@Model.Status.ToDisplayName()</span></dd>
+    <dd><span class="badge status-@ticket.Status.ToString().ToLowerInvariant()">@ticket.Status.ToDisplayName()</span></dd>
 
     <dt>Criado em</dt>
-    <dd>@Model.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</dd>
+    <dd>@ticket.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</dd>
 
     <dt>Descricao</dt>
-    <dd>@Model.Description</dd>
+    <dd>@ticket.Description</dd>
 </dl>
+
+<section class="form-card">
+    <h2>Comentarios</h2>
+
+    @if (ticket.Comments.Count == 0)
+    {
+        <p>Ainda nao existem comentarios para este ticket.</p>
+    }
+    else
+    {
+        <ul class="ticket-comments">
+            @foreach (var comment in ticket.Comments)
+            {
+                <li>
+                    <p><strong>@comment.AuthorName</strong> em @comment.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</p>
+                    <p>@comment.Content</p>
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+<section class="form-card">
+    <h2>Adicionar comentario</h2>
+    <form asp-action="AddComment" asp-route-id="@ticket.Id" method="post" novalidate>
+        <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+        <div class="form-group">
+            <label asp-for="NewComment.AuthorName"></label>
+            <input asp-for="NewComment.AuthorName" />
+            <span asp-validation-for="NewComment.AuthorName"></span>
+        </div>
+
+        <div class="form-group">
+            <label asp-for="NewComment.Content"></label>
+            <textarea asp-for="NewComment.Content" rows="4"></textarea>
+            <span asp-validation-for="NewComment.Content"></span>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="button">Guardar comentario</button>
+        </div>
+    </form>
+</section>
 
 <div class="form-actions">
     <a class="button button-secondary" asp-action="Index">Voltar a lista</a>
